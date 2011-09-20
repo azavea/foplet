@@ -1,3 +1,21 @@
+/*********************************************************************
+ *
+ * Copyright 2011 Azavea, Inc
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ ********************************************************************/
+
 package com.azavea.fop.pdf;
 
 import java.io.File;
@@ -39,7 +57,7 @@ import org.apache.fop.apps.MimeConstants;
 import org.apache.fop.servlet.ServletContextURIResolver;
 
 /**
- * Servlet to generate a PDF, provided an xml and an xslt.
+ * A servlet class that generates PDFs when provided an xml and an xslt.
  * <br/>
  * Servlet params are:
  * <ul>
@@ -57,41 +75,52 @@ public class Foplet extends HttpServlet {
 
     /** Name of the parameter used for the XML file */
     protected static final String XML_REQUEST_PARAM = "xml";
+
     /** Name of the parameter used for the XSLT file */
     protected static final String XSLT_REQUEST_PARAM = "xslt";
+
     /** Logger to give to FOP */
     protected SimpleLog log = null;
+
     /** The TransformerFactory used to create Transformer instances */
     protected TransformerFactory transFactory = null;
+
     /** The FopFactory used to create Fop instances */
     protected FopFactory fopFactory = null;
+
     /** URIResolver for use by this servlet */
     protected URIResolver uriResolver;
 	
     /**
+     * Initialize the foplet servlet. This method configures a log,
+     * transformer factory and resolvers necessary for pulling in
+     * external graphics from URLs.
+     *
      * @see javax.servlet.GenericServlet#init()
+     * @throws ServletException
      */
     public void init() throws ServletException {
-        this.log = new SimpleLog("kif/Foplet");
+        this.log = new SimpleLog("foplet");
         log.setLevel(SimpleLog.LOG_LEVEL_DEBUG);
         this.uriResolver = new ServletContextURIResolver(getServletContext());
         this.transFactory = TransformerFactory.newInstance();
         this.transFactory.setURIResolver(this.uriResolver);
-        //Configure FopFactory as desired
+
+        // Configure FopFactory as desired
         this.fopFactory = FopFactory.newInstance();
         this.fopFactory.setURIResolver(this.uriResolver);
-        configureFopFactory();
     }
     
     /**
-     * This method is called right after the FopFactory is instantiated and can be overridden
-     * by subclasses to perform additional configuration.
-     */
-    protected void configureFopFactory() {
-        //Subclass and override this method to perform additional configuration
-    }
-
-    /**
+     * Accept POST requests with XML and XSLT documents as the POST request body,
+     * and return a PDF document.
+     * <p>
+     * If the xml or xslt parameters are missing, this method responds with an error 
+     * message in text/html.
+     *
+     * @param request An HttpServletRequest
+     * @param response An HttpServletResponse
+     * @throws ServletException When something goes wrong.
      * @see javax.servlet.http.HttpServlet#doPost(HttpServletRequest, HttpServletResponse)
      */
     public void doPost(HttpServletRequest request,
@@ -101,15 +130,17 @@ public class Foplet extends HttpServlet {
             String xmlParam = request.getParameter(XML_REQUEST_PARAM);
             String xsltParam = request.getParameter(XSLT_REQUEST_PARAM);
 
-            //Analyze parameters and decide with method to use
+            //Analyze parameters and decide which method to use
             if ((xmlParam != null) && (xsltParam != null)) {
                 renderXML(xmlParam, xsltParam, response);
             } else {
                 response.setContentType("text/html");
-                PrintWriter out = response.getWriter();
-                out.println("<html><head><title>Error</title></head>\n"
-                          + "<body><h1>Foplet Error</h1><h3>No "
-                          + "request params given.</body></html>");
+                response.getWriter().println("<html><head>" +
+                    "<title>Error</title></head><body>" +
+                    "<h1>Could Not Create Document</h1>" +
+                    "<h3>No request parameters provided.</h3>" + 
+                    "<p>Both 'xml' and 'xslt' parameters are required " +
+                    "to generate a PDF.</p></body></html>");
             }
         } catch (Exception ex) {
             throw new ServletException(ex);
@@ -117,7 +148,8 @@ public class Foplet extends HttpServlet {
     }
 
     /**
-     * Converts a String parameter to a JAXP Source object.
+     * Convert a String parameter to a JAXP Source object.
+     *
      * @param param a String parameter
      * @return Source the generated Source object
      */
@@ -134,6 +166,13 @@ public class Foplet extends HttpServlet {
         return src;
     }
 
+    /**
+     * Send the PDF content in the response.
+     *
+     * @param content A byte array of PDF content.
+     * @param response An HttpServletResponse.
+     * @throws IOException
+     */
     private void sendPDF(byte[] content, HttpServletResponse response) throws IOException {
         //Send the result back to the client
         response.setContentType("application/pdf");
@@ -146,13 +185,12 @@ public class Foplet extends HttpServlet {
      * Renders an XML file into a PDF file by applying a stylesheet
      * that converts the XML to XSL-FO. The PDF is written to a byte array
      * that is returned as the method's result.
+     *
      * @param xml the XML file
      * @param xslt the XSLT file
      * @param response HTTP response object
-     * @throws FOPException If an error occurs during the rendering of the
-     * XSL-FO
-     * @throws TransformerException If an error occurs during XSL
-     * transformation
+     * @throws FOPException If an error occurs during the rendering of the XSL-FO
+     * @throws TransformerException If an error occurs during XSL transformation
      * @throws IOException In case of an I/O problem
      */
     protected void renderXML(String xml, String xslt, HttpServletResponse response)
@@ -175,18 +213,17 @@ public class Foplet extends HttpServlet {
      * The transformer may be an identity transformer in which case the input
      * must already be XSL-FO. The PDF is written to a byte array that is
      * returned as the method's result.
+     *
      * @param src Input XML or XSL-FO
      * @param transformer Transformer to use for optional transformation
      * @param response HTTP response object
-     * @throws FOPException If an error occurs during the rendering of the
-     * XSL-FO
-     * @throws TransformerException If an error occurs during XSL
-     * transformation
+     * @throws FOPException If an error occurs during the rendering of the XSL-FO
+     * @throws TransformerException If an error occurs during XSL transformation
      * @throws IOException In case of an I/O problem
      */
     protected void render(Source src, Transformer transformer, HttpServletResponse response)
                 throws FOPException, TransformerException, IOException {
-        FOUserAgent foUserAgent = getFOUserAgent();
+        FOUserAgent foUserAgent = fopFactory.newFOUserAgent();
 
         //Setup output
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -203,11 +240,4 @@ public class Foplet extends HttpServlet {
         //Return the result
         sendPDF(out.toByteArray(), response);
 	}
-    
-    /** @return a new FOUserAgent for FOP */
-    protected FOUserAgent getFOUserAgent() {
-        FOUserAgent userAgent = fopFactory.newFOUserAgent();
-        //Configure foUserAgent as desired
-        return userAgent;
-    }
 }
