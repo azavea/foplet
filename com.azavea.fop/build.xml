@@ -1,0 +1,129 @@
+<!--
+   Copyright 2011 Azavea, Inc
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+
+   Author: David Zwarg
+-->
+<project default="servlet" basedir="." name="foplet">
+  <property file="${basedir}/build-local.properties"/>
+  <property file="${basedir}/build.properties"/>
+  <property environment="env"/>
+
+  <property name="optional.lib.dir" value="${basedir}/lib"/>
+
+  <fileset dir="${basedir}" id="dist.bin.lib">
+    <patternset id="dist.lib">
+      <include name="lib/avalon-framework*"/>
+      <include name="lib/xmlgraphics-commons*"/>
+      <include name="lib/batik*"/>
+      <include name="lib/commons-io*"/>
+      <include name="lib/commons-logging*"/>
+      <include name="lib/README*"/>
+      <include name="lib/serializer*"/>
+      <include name="lib/xalan*"/>
+      <include name="lib/xerces*"/>
+      <include name="lib/xml-apis*"/>
+    </patternset>
+  </fileset>
+
+  <path id="libs-build-classpath">
+    <fileset dir="${basedir}/lib">
+      <include name="*.jar"/>
+    </fileset>
+    <fileset dir="${optional.lib.dir}">
+      <include name="*.jar"/>
+    </fileset>
+  </path>
+
+  <path id="libs-run-classpath">
+    <fileset dir="${basedir}/lib">
+      <include name="*.jar"/>
+    </fileset>
+    <fileset dir="${optional.lib.dir}">
+      <include name="*.jar"/>
+    </fileset>
+    <fileset dir="${basedir}/build">
+      <include name="fop.jar"/>
+      <include name="fop-hyph.jar" />
+    </fileset>
+  </path>
+
+  <property name="Name" value="FOP Servlet"/>
+  <property name="name" value="foplet"/>
+  <property name="NAME" value="FOPLET"/>
+  <property name="version" value="1.0.0.0"/>
+  <property name="year" value="2011"/>
+
+  <property name="javac.debug" value="on"/>
+  <property name="javac.optimize" value="off"/>
+  <property name="javac.deprecation" value="on"/>
+  <property name="javac.source" value="1.5"/>
+  <property name="javac.target" value="1.5"/>
+  <property name="javac.fork" value="no"/>
+ 
+  <property name="src.dir" value="${basedir}/src"/>
+  <property name="lib.dir" value="${basedir}/lib"/>
+
+  <property name="build.dir" value="${basedir}/build"/>
+  <property name="build.classes.dir" value="${build.dir}/classes"/>
+  
+  <target name="build" depends="" description="Compiles the source code">
+    <!-- create directories -->
+    <mkdir dir="${build.classes.dir}"/>
+    <javac destdir="${build.classes.dir}" fork="${javac.fork}" debug="${javac.debug}"
+           deprecation="${javac.deprecation}" optimize="${javac.optimize}"
+           source="${javac.source}" target="${javac.target}">
+      <src path="${src.dir}"/>
+      <patternset includes="**/*.java"/>
+      <classpath refid="libs-build-classpath"/>
+    </javac>
+  </target>
+
+  <target name="servlet" depends="build" description="Generates the WAR with the Foplet">
+    <echo message="Creating the Foplet WAR file"/>
+    <war warfile="${build.dir}/${name}.war" webxml="${src.dir}/conf/web.xml">
+      <lib dir="${lib.dir}">
+        <include name="avalon-framework*.jar"/>
+        <include name="commons-logging*.jar"/>
+        <include name="batik*.jar"/>
+        <include name="commons-io*.jar"/>
+        <include name="xmlgraphics*.jar"/>
+		<include name="fop.jar"/>
+      </lib>
+	  <classes dir="${build.classes.dir}"/>
+	  <fileset dir="${src.dir}">
+		<include name="**/*.jsp"/>
+		<exclude name="**/*.java"/>
+	  </fileset>
+    </war>
+  </target>
+  
+  <target name="deploy" depends="servlet" description="Copy the .war file to Tomcat's webapps folder for deployment.">
+    <echo message="Copying servlet to tomcat for deployment."/>
+    
+    <copy file="${build.dir}/${name}.war" todir="${env.CATALINA_HOME}/webapps"/>
+  </target>
+  
+  <target name="undeploy" description="Take the servlet out of Tomcat's webapps folder.">
+    <echo message="Undeploying the servlet from tomcat."/>
+    
+    <delete file="${env.CATALINA_HOME}/webapps/${name}.war"/>
+  </target>
+  
+  <target name="clean" description="Clean all build output">
+    <echo message="Cleaning all classes and .war files."/>
+    
+    <delete dir="${build.dir}"/>
+  </target>
+</project>
